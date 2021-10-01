@@ -1,0 +1,70 @@
+<% layout('layouts/boilerplate.ejs') %>
+
+<div class="row">
+  <h1 class="text-center">Editing review information</h1>
+  <div class="col-6 offset-3">
+    <form
+      action="/hostels/<%=foundHostel._id%>?_method=PUT"
+      method="POST"
+      novalidate
+      class="validated-form"
+    >
+      <div class="mb-3">
+        <label class="form-label mb-3" for="hostel[name]"
+          >Name of the hostel:</label
+        >
+        <input
+          class="form-control mb-3"
+          type="text"
+          id="name"
+          name="hostel[name]"
+          value="<%=foundHostel.name%>"
+          required
+        />
+        <label class="form-label mb-3" for="hostel[location]">Location:</label>
+        <input
+          class="form-control mb-3"
+          type="text"
+          id="location"
+          name="hostel[location]"
+          value="<%=foundHostel.location%>"
+        />
+        <label class="form-label mb-3" for="hostel[price]"
+          >Price per night:</label
+        >
+        <input
+          class="form-control mb-3"
+          type="text"
+          id="price"
+          name="hostel[price]"
+          value="<%=foundHostel.price%>"
+          required
+        />
+        <label class="form-label mb-3" for="hostel[image]">Image URL</label>
+        <input
+          class="form-control mb-3"
+          type="text"
+          id="image"
+          name="hostel[image]"
+          value="<%=foundHostel.image%>"
+          required
+        />
+        <label class="form-label mb-3" for="hostel[description]"
+          >Description:</label
+        >
+        <textarea
+          class="form-control mb-3"
+          type="text"
+          id="description"
+          name="hostel[description]"
+        >
+<%=foundHostel.description%></textarea
+        >
+      </div>
+      <div class="mb-3">
+        <button class="btn btn-success">Edit Hostel Review</button>
+      </div>
+    </form>
+    <a href="/hostels">View all hostel reviews</a>
+  </div>
+</div>
