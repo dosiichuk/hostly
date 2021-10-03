@@ -8,6 +8,14 @@ const ejsMate = require("ejs-mate");
 const catchAsync = require("./utils/catchAsync");
 const ExpressError = require("./utils/ExpressError");
 const Review = require("./models/review");
+const hostels = require("./routes/hostels");
+const reviews = require("./routes/reviews");
+const users = require("./routes/users");
+const session = require("express-session");
+const flash = require("connect-flash");
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user");
 
 const { hostelSchema, reviewSchema } = require("./schemas");
 
@@ -15,6 +23,7 @@ mongoose.connect("mongodb://localhost:27017/hostly", {
   useNewUrlParser: true,
   useCreateIndex: true,
   useUnifiedTopology: true,
+  useFindAndModify: false,
 });
 
 const db = mongoose.connection;
@@ -27,113 +36,49 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 app.use(express.urlencoded({ extended: true }));
+
 app.use(methodOverride("_method"));
 app.engine("ejs", ejsMate);
-const validateHostel = (req, res, next) => {
-  const { error } = hostelSchema.validate(req.body);
-  if (error) {
-    const msg = error.details.map((el) => el.message).join(",");
-    throw new ExpressError(msg, 400);
-  } else {
-    next();
-  }
-};
-const validateReview = (req, res, next) => {
-  const { error } = reviewSchema.validate(req.body);
-  if (error) {
-    const msg = error.details.map((el) => el.message).join(",");
-    throw new ExpressError(msg, 400);
-  } else {
-    next();
-  }
+app.use(express.static(path.join(__dirname, "public")));
+
+const sessionConfig = {
+  secret: "secret",
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    expires: Date.now() + 1000 * 60 * 60 * 24 * 7,
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  },
 };
 
+app.use(session(sessionConfig));
+app.use(flash());
+
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.serializeUser());
+
+app.use((req, res, next) => {
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  next();
+});
+app.get("/fakeUser", async (req, res) => {
+  const user = new User({ email: "colt@gmail", username: "Colt" });
+  const newUser = await User.register(user, "chicken");
+  res.send(newUser);
+});
+app.use("/", users);
+
+app.use("/hostels", hostels);
+app.use("/hostels/:id/reviews", reviews);
 app.get("/", (req, res) => {
   res.render("home.ejs");
 });
 
-app.get(
-  "/hostels",
-  catchAsync(async (req, res) => {
-    const hostels = await Hostel.find({});
-    res.render("hostels/index.ejs", { hostels });
-  })
-);
-
-app.get("/hostels/new", (req, res) => {
-  res.render("hostels/new.ejs");
-});
-
-app.post(
-  "/hostels",
-  validateHostel,
-  catchAsync(async (req, res) => {
-    // if (!req.body.hostel) throw new ExpressError("Invalid hostel data", 400);
-
-    const hostel = new Hostel(req.body.hostel);
-    await hostel.save();
-    res.redirect(`/hostels/${hostel._id}`);
-  })
-);
-
-app.get(
-  "/hostels/:id",
-  catchAsync(async (req, res) => {
-    const { id } = req.params;
-    const hostel = await Hostel.findById(id).populate("reviews");
-    res.render("hostels/show.ejs", { hostel });
-  })
-);
-
-app.get(
-  "/hostels/:id/edit",
-  catchAsync(async (req, res) => {
-    const { id } = req.params;
-    const foundHostel = await Hostel.findById(id);
-    res.render("hostels/edit.ejs", { foundHostel });
-  })
-);
-app.put(
-  "/hostels/:id",
-  validateHostel,
-  catchAsync(async (req, res) => {
-    const { id } = req.params;
-    const foundHostel = await Hostel.findByIdAndUpdate(id, {
-      ...req.body.hostel,
-    });
-    res.redirect(`/hostels/${foundHostel._id}`);
-  })
-);
-app.delete(
-  "/hostels/:id",
-  catchAsync(async (req, res) => {
-    const { id } = req.params;
-    const foundHostel = await Hostel.findByIdAndDelete(id);
-    res.redirect("/hostels");
-  })
-);
-app.post(
-  "/hostels/:id/reviews",
-  validateReview,
-  catchAsync(async (req, res) => {
-    const hostel = await Hostel.findById(req.params.id);
-    const review = new Review(req.body.review);
-    hostel.reviews.push(review);
-    await hostel.save();
-    await review.save();
-    res.redirect(`/hostels/${hostel._id}`);
-  })
-);
-
-app.delete(
-  "/hostels/:id/reviews/:reviewId",
-  catchAsync(async (req, res) => {
-    const { id, reviewId } = req.params;
-    await Hostel.findByIdAndUpdate(id, { $pull: { reviews: reviewId } });
-    await Review.findByIdAndDelete(reviewId);
-    res.redirect(`/hostels/${id}`);
-  })
-);
 app.all("*", (req, res, next) => {
   next(new ExpressError("Page not found", 404));
 });
